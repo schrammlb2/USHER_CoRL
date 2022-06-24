@@ -1,6 +1,21 @@
 # USHER_CoRL
 Code for the CoRL submission "USHER: Unbiased Sampling for Hindsight Experience Replay"
 
+## Dependencies:
+	python >= 3.7.7
+	pytorch >= 1.5.1
+	numpy >= 1.21.5
+	gym <= 0.21.0
+		support for goal conditioned environments was deprecated after this version, and moved to gym-robotics
+		gym-robotics may be an alternative, but we have not tested our setup with it
+	pybullet >= 2.6.5
+	mujoco >= 2.1.0
+	mujoco-py >= 2.0.2.9
+	mpi4py >= 3.0.3
+	pygame >= 2.1.0
+	attrdict
+	tdqm
+	
 
 ## Discrete: 
 	cd discrete_usher
