@@ -299,7 +299,7 @@ class ddpg_agent:
             target_p_value = torch.clamp(target_p_value, 0, 1000)
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)
-            target_q_value = torch.clamp(target_q_value, -clip_return, 0)
+            target_q_value = torch.clamp(target_q_value, -clip_return*1000, 0)
 
         q0, p0 = self.critic_network(inputs_norm_tensor, map_t(t), actions_tensor, return_p=True)
 
@@ -326,7 +326,7 @@ class ddpg_agent:
             true_indep_goal_ratio = (p_indep_goal.detach() + c)/(.5*p_indep_goal.detach() + .5*p_indep_goal_next.detach() + c)
             true_indep_goal_ratio = torch.clamp(true_indep_goal_ratio, 1/clip_scale, clip_scale)
 
-            q_alpha = .01
+            q_alpha = .2
 
             q1_ratio = (1-q_alpha)*torch.clamp((p0.detach() + c)/(q_alpha*p0.detach() + (1-q_alpha)*p_next_value.detach() + c), 1/clip_scale, clip_scale)*her_used + (1-her_used)
             q2_ratio = q_alpha*torch.clamp((p_indep_goal.detach() + c)/(q_alpha*p_indep_goal.detach() + (1-q_alpha)*p_indep_goal_next.detach() + c), 1/clip_scale, clip_scale)*her_used + (1-her_used)
@@ -348,13 +348,43 @@ class ddpg_agent:
         self.global_count += 1
         if self.global_count % 2 == 0:
             actions_real, log_prob = self.actor_network(policy_input, with_logprob = True)
-            actor_loss = -self.critic_network(duplicated_g_input, map_t(t), actions_real).mean() + self.args.entropy_regularization*log_prob.mean()
+            act_q, act_p = self.critic_network(duplicated_g_input, map_t(t), actions_real, return_p=True)
+            # act_q, _     = self.critic_network(duplicated_g_input, map_t(t), actions_real, return_p=True)
+            # _    , act_p = self.critic_network(inputs_goal_tensor, map_t(t), actions_real, return_p=True)
+            
+            count_based_exploration = True
+            explr = 10. #exploration_coefficient
+            if self.args.apply_ratio and count_based_exploration: 
+                offset = .0001
+                actor_loss = -act_q.mean() + explr*(np.log(self.t)**.5/(self.t*act_p+offset)**.5).mean() + self.args.entropy_regularization*log_prob.mean()
+            else: 
+                actor_loss = -act_q.mean() + self.args.entropy_regularization*log_prob.mean()
             actor_loss += self.args.action_l2 * (actions_real / self.env_params['action_max']).pow(2).mean()
 
             self.actor_optim.zero_grad()
             actor_loss.backward()
             sync_grads(self.actor_network)
             self.actor_optim.step()
+
+        # self.global_count += 1
+        # if self.global_count % 2 == 0:
+        #     actions_real, log_prob = self.actor_network(policy_input, with_logprob = True)
+        # else: 
+        #     actions_real = self.actor_network(policy_input, with_logprob = False, deterministic=True, test=True)
+        #     log_prob = 1
+
+        # act_q, act_p = self.critic_network(duplicated_g_input, map_t(t), actions_real, return_p=True)
+        # count_based_exploration = True
+        # explr = 10. #exploration_coefficient
+        # if self.args.apply_ratio and count_based_exploration: 
+        #     actor_loss = -act_q.mean() + explr*(np.log(self.t)**.5/(self.t*act_p)**.5).mean() + self.args.entropy_regularization*log_prob.mean()
+        # else: 
+        #     actor_loss = -act_q.mean() + self.args.entropy_regularization*log_prob.mean()
+        # actor_loss += self.args.action_l2 * (actions_real / self.env_params['action_max']).pow(2).mean()
+        # self.actor_optim.zero_grad()
+        # actor_loss.backward()
+        # sync_grads(self.actor_network)
+        # self.actor_optim.step()
 
         # start to update the network
         # update the critic_network

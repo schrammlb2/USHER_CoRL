@@ -5,6 +5,16 @@ from gym.wrappers.time_limit import TimeLimit
 from action_randomness_wrapper import ActionRandomnessWrapper
 from torus_env import Torus
 
+from pomp.example_problems.robotics.fetch.reach import FetchReachEnv#type: ignore
+from pomp.example_problems.robotics.fetch.push import FetchPushEnv#type: ignore
+from pomp.example_problems.robotics.fetch.slide import FetchSlideEnv#type: ignore
+from pomp.example_problems.robotics.fetch.pick_and_place import FetchPickAndPlaceEnv#type: ignore
+
+import pdb
+
+# REWARD_TYPE = "sparse"
+REWARD_TYPE = "dense"
+
 def make_env(args):
     # create the ddpg_agent
     if args.env_name == "Throwing":
@@ -54,6 +64,21 @@ def make_env(args):
         print(f"Dimension = {dimension}")
         print(f"Freeze = {freeze}")
         env = TimeLimit(Torus(dimension, freeze), max_episode_steps=50)
+    # elif "Fetch" in args.env_name:
+    #     env = gym.make(args.env_name, reward_type="dense")
+    #     # env = gym.make(args.env_name)
+    elif args.env_name == "FetchReach":
+        env = TimeLimit(FetchReachEnv(reward_type=REWARD_TYPE), max_episode_steps=50)
+    elif args.env_name == "FetchPush":
+        env = TimeLimit(FetchPushEnv(reward_type=REWARD_TYPE), max_episode_steps=50)
+    elif args.env_name == "FetchSlide":
+        env = TimeLimit(FetchSlideEnv(reward_type=REWARD_TYPE), max_episode_steps=50)
+    elif args.env_name == "FetchPickAndPlace":
+        env = TimeLimit(FetchPickAndPlaceEnv(reward_type=REWARD_TYPE), max_episode_steps=50)
+    elif args.env_name == "HandReach-v0":
+        # env = TimeLimit(HandReachEnv(), max_episode_steps=50)
+        # env = gym.make(args.env_name, reward_type="dense")
+        env = gym.make(args.env_name)
     else:
         env = gym.make(args.env_name)
 

@@ -25,17 +25,24 @@ class actor(nn.Module):
         # self.mu_layer.weight.data.fill_(0)
         # self.mu_layer.bias.data.fill_(0)
         self.log_std_layer = nn.Linear(256, env_params['action'])
+        # self.test_layer = nn.Linear(256, env_params['action'])
 
-    def forward(self, x, with_logprob = False, deterministic = False, forced_exploration=1):
+    def forward(self, x, with_logprob = False, deterministic = False, test=False, forced_exploration=1):
+        # if test: 
+        #     assert deterministic and not with_logprob "test setting should always be " + \
+        #         "called with deterministic=True and with_logprob=False"
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
 
         # return actions
-        mu = self.mu_layer(x)#/100
-        log_std = self.log_std_layer(x)-1#/100 -1.
-        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
-        std = torch.exp(log_std)*forced_exploration
+        if test: 
+            mu = self.test_layer(x)
+        else:
+            mu = self.mu_layer(x)#/100
+            log_std = self.log_std_layer(x)-1#/100 -1.
+            log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+            std = torch.exp(log_std)*forced_exploration
 
         # Pre-squash distribution and sample
         pi_distribution = Normal(mu, std)
