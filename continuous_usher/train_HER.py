@@ -60,7 +60,10 @@ if __name__ == '__main__':
     args = get_args()
 
 
-    from HER.rl_modules.usher_agent_high_dim import ddpg_agent
+    # from HER.rl_modules.usher_agent_high_dim import ddpg_agent
+    # from HER.rl_modules.usher_sr import ddpg_agent
+    # from HER.rl_modules.usher_tdm_2 import ddpg_agent
+    from HER.rl_modules.usher_tdm import ddpg_agent
     suffix = ""
 
     agent = launch(args)

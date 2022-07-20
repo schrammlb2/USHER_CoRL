@@ -34,3 +34,71 @@ running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
 running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
 
 running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal
+
+running HandReach-v0, 0.0 noise, 2-goal ratio with delta-probability
+
+running HandReach-v0, 0.0 noise, 1-goal

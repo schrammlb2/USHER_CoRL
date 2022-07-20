@@ -211,6 +211,49 @@ class test_T_conditioned_ratio_critic(nn.Module):
         # return q_value
 
 
+class sr_critic(nn.Module):
+    def __init__(self, env_params, sr_dim):
+        super(sr_critic, self).__init__()
+        self.max_action = env_params['action_max']
+        # self.norm1 = nn.LayerNorm(env_params['obs'] + 2*env_params['goal'] + 1 + env_params['action'])
+        self.norm = False
+        if self.norm:
+            self.norm1 = nn.LayerNorm(256)
+            self.norm2 = nn.LayerNorm(256)
+            self.norm3 = nn.LayerNorm(256)
+        self.fc1 = nn.Linear(env_params['obs'] + 2*env_params['goal'] + 1 + env_params['action'], 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, 256)
+        self.q_out = nn.Linear(256, 1)
+        self.p_out = nn.Linear(256, sr_dim)
+
+    # def forward(self, x, actions,  T=0, return_p=False):
+    #     T = torch.zeros(x.shape[:-1] + (1,))
+    def forward(self, x, T, actions, return_sr=False):
+        # pdb.set_trace()
+        t_scale = .01
+        x = torch.cat([x, T*t_scale, actions / self.max_action], dim=1)
+        # x = torch.clip(x, -clip_max, clip_max)
+        x = F.relu(self.fc1(x))
+        if self.norm: x = self.norm1(x)
+        x = F.relu(self.fc2(x))
+        if self.norm: x = self.norm2(x)
+        x = F.relu(self.fc3(x))
+        if self.norm: x = self.norm3(x)
+        q_value = self.q_out(x)
+        if return_sr: 
+            #exponentiate p to ensure it's non-negative
+            exp = .5 #exponent for p
+            base = 4 #Initially give states small probability. 
+                # If they're not visited, they won't be updated, so they should remain small
+                # States that are visited will grow, which is what we want
+            val =  (exp*self.p_out(x) - base)
+            p_value = torch.nn.ELU()(val) + 1
+            # p_value =  self.p_out(x) #+ 1
+            return q_value, p_value
+        else: 
+            return q_value
+
 
 
 

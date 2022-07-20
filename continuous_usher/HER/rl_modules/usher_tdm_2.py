@@ -6,7 +6,8 @@ from mpi4py import MPI
 from HER.mpi_utils.mpi_utils import sync_networks, sync_grads
 from HER.mpi_utils.normalizer import normalizer
 from HER.rl_modules.replay_buffer import replay_buffer
-from HER.rl_modules.models import test_T_conditioned_ratio_critic as critic
+# from HER.rl_modules.models import test_T_conditioned_ratio_critic as critic
+from HER.rl_modules.models import sr_critic as critic
 from HER.rl_modules.models import actor
 from HER.her_modules.her import her_sampler
 import pdb
@@ -36,14 +37,15 @@ class ddpg_agent:
         # create the network
         self.actor_network = actor(env_params)
         # self.critic_network = critic(env_params)
-        self.critic_network = critic_constructor(env_params)
+        sr_dim = env_params['goal']
+        self.critic_network = critic_constructor(env_params, sr_dim)
         # sync the networks across the cpus
         sync_networks(self.actor_network)
         sync_networks(self.critic_network)
         # build up the target network
         self.actor_target_network = actor(env_params)
         # self.critic_target_network = critic(env_params)
-        self.critic_target_network = critic_constructor(env_params)
+        self.critic_target_network = critic_constructor(env_params, sr_dim)
         # load the weights into the target networks
         self.actor_target_network.load_state_dict(self.actor_network.state_dict())
         self.critic_target_network.load_state_dict(self.critic_network.state_dict())
@@ -58,7 +60,8 @@ class ddpg_agent:
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         # her sampler
         self.her_module = her_sampler(self.args.replay_strategy, 
-            self.args.replay_k, self.env.compute_reward, args.gamma, args.two_goal, env.distance_threshold)
+            self.args.replay_k, self.env.compute_reward, args.gamma, args.two_goal, 
+            distance_threshold=env.distance_threshold, sr_dim=sr_dim, goal_dim=env_params['goal'], rff_function=lambda x: x)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
         self.t = 1
@@ -287,10 +290,10 @@ class ddpg_agent:
             deterministic_policy = True
             if deterministic_policy: 
                 actions_next= self.actor_target_network(policy_input_next, deterministic=True)
-                q_next_value, p_next_value = self.critic_target_network(inputs_next_norm_tensor, map_t(t), actions_next, return_p=True) 
+                q_next_value, p_next_value = self.critic_target_network(inputs_next_norm_tensor, map_t(t), actions_next, return_sr=True) 
             else:  
                 actions_next, log_prob_next = self.actor_target_network(policy_input_next, with_logprob = True)
-                q_next_value, p_next_value = self.critic_target_network(inputs_next_norm_tensor, map_t(t), actions_next, return_p=True) 
+                q_next_value, p_next_value = self.critic_target_network(inputs_next_norm_tensor, map_t(t), actions_next, return_sr=True) 
                 q_next_value = q_next_value + self.args.entropy_regularization*log_prob_next
             q_next_value = q_next_value.detach()
             target_q_value = r_tensor + self.args.gamma * q_next_value #* (-r_tensor) 
@@ -301,45 +304,9 @@ class ddpg_agent:
             clip_return = 1 / (1 - self.args.gamma)
             target_q_value = torch.clamp(target_q_value, -clip_return*1000, 0)
 
-        q0, p0 = self.critic_network(inputs_norm_tensor, map_t(t), actions_tensor, return_p=True)
+        q0, p0 = self.critic_network(inputs_norm_tensor, map_t(t), actions_tensor, return_sr=True)
 
-        if self.args.apply_ratio: 
-            _, on_policy_input = self.get_input_tensor(transitions['obs'], transitions['ag_next'], transitions['policy_g'])
-            _ , realized_p = self.critic_network(on_policy_input, map_t(t), actions_tensor, return_p=True)
-            _, indep_goal_input = self.get_input_tensor(transitions['obs'], transitions['alt_g'], transitions['policy_g'])
-            _, indep_goal_input_next = self.get_input_tensor(transitions['obs'], transitions['alt_g'], transitions['policy_g'])
-
-            q_indep_goal, p_indep_goal = self.critic_network(indep_goal_input, map_t(t), actions_tensor, return_p=True)
-            q_indep_goal_next, p_indep_goal_next = self.critic_target_network(indep_goal_input_next, map_t(t), actions_tensor, return_p=True)
-
-            true_c = self.args.ratio_offset
-            p_num = p0.detach()
-            p_denom =  p_next_value.detach()*.5 + p_num*.5
-
-            c = .01
-            true_ratio = (p_num+c)/(p_denom + c)
-            clip_scale = 1+self.args.ratio_clip#1.4
-            true_ratio = torch.clamp(true_ratio, 1/clip_scale, clip_scale)
-            p_ratio = true_ratio*her_used + (1-her_used)
-            q_ratio = torch.clamp((p0.detach() + c)/(p_next_value.detach() + c), 1/clip_scale, clip_scale)*her_used + (1-her_used)
-
-            true_indep_goal_ratio = (p_indep_goal.detach() + c)/(.5*p_indep_goal.detach() + .5*p_indep_goal_next.detach() + c)
-            true_indep_goal_ratio = torch.clamp(true_indep_goal_ratio, 1/clip_scale, clip_scale)
-
-            q_alpha = .2
-
-            q1_ratio = (1-q_alpha)*torch.clamp((p0.detach() + c)/(q_alpha*p0.detach() + (1-q_alpha)*p_next_value.detach() + c), 1/clip_scale, clip_scale)*her_used + (1-her_used)
-            q2_ratio = q_alpha*torch.clamp((p_indep_goal.detach() + c)/(q_alpha*p_indep_goal.detach() + (1-q_alpha)*p_indep_goal_next.detach() + c), 1/clip_scale, clip_scale)*her_used + (1-her_used)
-
-            target_q_indep_goal_value = torch.tensor(transitions['alt_r'], dtype=torch.float32)  + self.args.gamma * q_indep_goal_next
-
-            critic_loss = (q1_ratio*(target_q_value - q0).pow(2)).mean()
-            critic_loss = critic_loss + (q2_ratio*(target_q_indep_goal_value - q_indep_goal).pow(2)).mean()
-            critic_loss = critic_loss + (p_ratio*her_used*(((p0).pow(2)  - (t-1)/t*(p0*p_next_value)))).mean()
-            critic_loss = critic_loss + (true_indep_goal_ratio*her_used*((p_indep_goal).pow(2)- (t-1)/t*p_indep_goal*p_indep_goal_next)).mean() 
-            critic_loss = critic_loss - 2*(realized_p/t).mean()/100
-        else: 
-            critic_loss = (target_q_value - q0).pow(2).mean() + 0*(target_p_value - p0).pow(2).mean()
+        critic_loss = (target_q_value - q0).pow(2).mean() + 0*(target_p_value - p0).pow(2).mean()
                                                                 #Necessary so gradient value exists for p-head and does not cause error
                                                         
 
@@ -348,9 +315,9 @@ class ddpg_agent:
         self.global_count += 1
         if self.global_count % 2 == 0:
             actions_real, log_prob = self.actor_network(policy_input, with_logprob = True)
-            act_q, act_p = self.critic_network(duplicated_g_input, map_t(t), actions_real, return_p=True)
-            # act_q, _     = self.critic_network(duplicated_g_input, map_t(t), actions_real, return_p=True)
-            # _    , act_p = self.critic_network(inputs_goal_tensor, map_t(t), actions_real, return_p=True)
+            act_q, act_p = self.critic_network(duplicated_g_input, map_t(t), actions_real, return_sr=True)
+            # act_q, _     = self.critic_network(duplicated_g_input, map_t(t), actions_real, return_sr=True)
+            # _    , act_p = self.critic_network(inputs_goal_tensor, map_t(t), actions_real, return_sr=True)
             
             # count_based_exploration = True
             count_based_exploration = False
@@ -374,7 +341,7 @@ class ddpg_agent:
         #     actions_real = self.actor_network(policy_input, with_logprob = False, deterministic=True, test=True)
         #     log_prob = 1
 
-        # act_q, act_p = self.critic_network(duplicated_g_input, map_t(t), actions_real, return_p=True)
+        # act_q, act_p = self.critic_network(duplicated_g_input, map_t(t), actions_real, return_sr=True)
         # count_based_exploration = True
         # explr = 10. #exploration_coefficient
         # if self.args.apply_ratio and count_based_exploration: 
